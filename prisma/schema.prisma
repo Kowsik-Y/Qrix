@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String?         @unique
+  emailVerified DateTime?
+  image         String?
+  role          String          @default("player")
+  accounts      Account[]
+  sessions      Session[]
+  playerSessions PlayerSession[]
+  hostedGames   Game[]          @relation("HostGames")
+  sharedGames   Game[]          @relation("SharedGames")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Game {
+  id           String          @id @default(cuid())
+  editCode     String          @unique
+  title        String?
+  hostId       String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  questions    Question[]
+  gameSessions GameSession[]
+  host         User            @relation("HostGames", fields: [hostId], references: [id], onDelete: Cascade)
+  sharedWith   User[]          @relation("SharedGames")
+}
+
+model GameSession {
+  id           String          @id @default(cuid())
+  code         String          @unique
+  gameId       String
+  status       String          @default("waiting")
+  currentIndex Int             @default(0)
+  createdAt    DateTime        @default(now())
+  game         Game            @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  players      PlayerSession[]
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  gameId    String
+  text      String
+  image     String?
+  optionA   String
+  imageA    String?
+  optionB   String
+  imageB    String?
+  optionC   String
+  imageC    String?
+  optionD   String
+  imageD    String?
+  correct   String
+  timeLimit Int      @default(15)
+  order     Int      @default(0)
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  answers   Answer[]
+}
+
+model PlayerSession {
+  id        String      @id @default(cuid())
+  userId    String
+  sessionId String
+  score     Int         @default(0)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sessionId])
+}
+
+model Answer {
+  id         String   @id @default(cuid())
+  questionId String
+  userId     String
+  gameSessionId String?
+  selected   String
+  isCorrect  Boolean
+  timeTaken  Int      @default(0)
+  points     Int      @default(0)
+  createdAt  DateTime @default(now())
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
